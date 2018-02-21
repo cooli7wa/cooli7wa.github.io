@@ -1,3 +1,11 @@
+
+*{
+    -webkit-transition: all 0.2s; /* Safari */
+    -webkit-transition-timing-function: linear; /* Safari */
+    transition: all 0.2s;
+    transition-timing-function: linear;
+      }
+
 /**
  * Reset some basic elements
  */
@@ -9,7 +17,6 @@ dl, dd, ol, ul, figure {
 }
 
 
-
 /**
  * Basic styling
  */
@@ -17,12 +24,16 @@ body {
     font: $base-font-weight #{$base-font-size}/#{$base-line-height} $base-font-family;
     color: $text-color;
     background-color: $background-color;
-    -webkit-text-size-adjust: 100%;
-    -webkit-font-feature-settings: "kern" 1;
-    -moz-font-feature-settings: "kern" 1;
-    -o-font-feature-settings: "kern" 1;
-    font-feature-settings: "kern" 1;
-    font-kerning: normal;
+    text-rendering: optimizeLegibility;
+    padding: 3% 22% 5% 22%;
+
+        @media only screen and (max-width: 1100px) {
+          padding: 3% 5% 5% 5%;
+        }
+
+        @media only screen and (max-width: 800px) {
+          padding: 0;
+        }
 }
 
 
@@ -45,8 +56,9 @@ ul, ol, dl, figure,
 img {
     max-width: 100%;
     vertical-align: middle;
+    border-radius: 4px;
+    margin-bottom: 2em;
 }
-
 
 
 /**
@@ -67,12 +79,18 @@ figcaption {
  */
 ul, ol {
     margin-left: $spacing-unit;
+     @include media-query($on-palm) {
+                font-size: 12px;
+                }
 }
 
 li {
     > ul,
     > ol {
          margin-bottom: 0;
+            @include media-query($on-palm) {
+                font-size: 12px;
+                }
     }
 }
 
@@ -82,25 +100,27 @@ li {
  * Headings
  */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: $base-font-weight;
+    font-weight: 700;
+    font-family: $head-font-family;
 }
 
-
+h1{
+    font-size: 2em;
+}
 
 /**
  * Links
  */
 a {
-    color: $brand-color;
+    color: $brand-color-2;
     text-decoration: none;
 
     &:visited {
-        color: darken($brand-color, 15%);
+        color: darken($brand-color-2, 15%);
     }
 
     &:hover {
-        color: $text-color;
-        text-decoration: underline;
+        color: $brand-color;
     }
 }
 
@@ -111,12 +131,12 @@ a {
  */
 blockquote {
     color: $grey-color;
-    border-left: 4px solid $grey-color-light;
+    border-left: 4px solid $brand-color;
     padding-left: $spacing-unit / 2;
     font-size: 18px;
     letter-spacing: -1px;
     font-style: italic;
-
+    font-family: monospace;
     > :last-child {
         margin-bottom: 0;
     }
@@ -130,9 +150,8 @@ blockquote {
 pre,
 code {
     font-size: 15px;
-    border: 1px solid $grey-color-light;
+    border: 1px solid $brand-color;
     border-radius: 3px;
-    background-color: #eef;
 }
 
 code {
