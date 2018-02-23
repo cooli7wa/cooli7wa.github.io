@@ -28,6 +28,7 @@ echo "cp file as $new_file_name ... done"
 
 # deal image
 sed -i 's:!\[.*\](:&{{site.baseurl}}/images/md/:g' $new_file_name
+sed -i 's:<img src=":&{{site.baseurl}}/images/md/:g' $new_file_name
 echo "deal image ... done"
 
 # deal mathjax
