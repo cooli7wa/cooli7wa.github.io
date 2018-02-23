@@ -5,7 +5,7 @@ description:
 categories: study
 author: cooli7wa
 ---
-<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>
 
 [原文地址](http://neuralnetworksanddeeplearning.com/chap1.html)
 
