@@ -2,7 +2,7 @@
 #   Main Configs   #
 # ---------------- #
 baseurl:
-url: http://cooli7wa.github.io/
+url: https://cooli7wa.github.io/
 date_format: "ordinal"
 title: Cooli7wa
 subtitle: "行走在路上"
