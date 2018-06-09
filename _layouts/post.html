@@ -1,45 +1,49 @@
 ---
 layout: default
 ---
-
-<article class="post" itemscope itemtype="http://schema.org/BlogPosting">
-<header class="post-header">
-<h1 class="post-title" itemprop="name headline">{{ page.title }}</h1>
-
-   <p class="post-metadata">
-   <time datetime="{{ page.date | date_to_xmlschema }}" itemprop="datePublished">
-       <i class="fa fa-calendar" aria-hidden="true"></i> {{ page.date | date: "%b %-d, %Y" }}
-    </time>
-    
-    {% if page.author %}  &nbsp;&nbsp; 
-    <span itemprop="author" itemscope itemtype="http://schema.org/Person"><span itemprop="name"><i class="fa fa-user" aria-hidden="true"></i> {{ page.author }}</span></span>{% endif %}
-
-{% if page.categories %}  &nbsp;&nbsp; 
-   <span><i class="fa fa-tag" aria-hidden="true"></i> {% assign tags = page.categories %}{% for tag in tags %}{{tag}}{% unless forloop.last %},&nbsp;{% endunless %}{% endfor %}</span>
-{% endif %}
-
-
-{% assign words = content | strip_html | number_of_words %}
- &nbsp;&nbsp; 
-   <span><i class="fa fa-clock-o" aria-hidden="true"></i> 
-{% if words < 360 %}
- 1 min
-{% else %}
-  {{ words | divided_by:180 }} mins 
-{% endif %}
-</span>
-</p>
-
-</header>
-<div class="post-content" itemprop="articleBody">{{ content }}</div>
-
-
-</article>
-{% include share.html %}
-
-
-{% if site.disqus-shortname %}
-{% include disqus.html %}
-{% endif %}
-<br />
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css">
+<section class="collection-head small geopattern" data-pattern-id="{{ page.title | truncate: 15, ''}}">
+<div class="container">
+  <div class="columns">
+    <div class="column three-fourths">
+      <div class="collection-title">
+        <h1 class="collection-header">{{ page.title }}</h1>
+        <div class="collection-info">
+          {% if page.date %}
+          <span class="meta-info">
+            <span class="octicon octicon-calendar"></span> {{ page.date | date: "%Y/%m/%d" }}
+          </span>
+          {% endif %}
+          {% for cat in page.categories %}
+          <span class="meta-info">
+            <span class="octicon octicon-file-directory"></span>
+            <a href="{{ site.url }}/categories/#{{ cat }}" title="{{ cat }}">{{ cat }}</a>
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+<!-- / .banner -->
+<section class="container content">
+<div class="columns">
+  <div class="column three-fourths" >
+    <article class="article-content markdown-body">
+    {{ content }}
+    </article>
+    <div class="share">
+      {% include sns-share.html %}
+    </div>
+    <div class="comment">
+      {% include comments.html %}
+    </div>
+  </div>
+  <div class="column one-fourth">
+    {% include sidebar-search.html %}
+    {% include sidebar-qrcode.html %}
+    {% include sidebar-post-nav.html %}
+  </div>
+</div>
+</section>
+<!-- /section.content -->
