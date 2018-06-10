@@ -32,7 +32,7 @@ sed -i 's:<img src=":&{{site.baseurl}}/images/md/:g' $new_file_name
 echo "deal image ... done"
 
 # deal mathjax
-sed -i 1'i <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>\n' $new_file_name
+echo '<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>' >> $new_file_name
 echo "deal mathjax ... done"
 
 # deal header

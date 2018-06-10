@@ -6,12 +6,8 @@ description:
 categories: tools
 author: cooli7wa
 ---
-<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>
-
 公司使用repo管理多个project，使用gerrit作为代码审核。
-
 为了方便为gerrit上的多个project创建同名分支，减少错误和遗漏，需要做一个自动化工具。
-
 查阅了一些资料，有两种方式可以做，SSH和REST API
 
 ## SSH
@@ -128,3 +124,4 @@ print(ret)
 ```
 
 <完>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>

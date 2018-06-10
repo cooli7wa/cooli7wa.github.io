@@ -9,7 +9,6 @@ author: cooli7wa
 
 [原文地址](http://neuralnetworksanddeeplearning.com/chap1.html)
 
-
 ### perceptrons（感知器）
 
 1950s-1960s by scientist Frank Rosenblatt

@@ -1,16 +1,14 @@
 ---
 layout: page
 title: About
-description: 行走在路上
+description: 目标和坚持，会改变一切
 keywords: Cooli7wa
 comments: False
 menu: 关于
 permalink: /about/
 ---
 
-坚持客观理性
-
-坚信普世智慧
+眼光放得长远一些，看到的东西也会多一些，生活也就会过得更有意义一点
 
 ## 联系
 
