@@ -16,13 +16,24 @@ permalink: /about/
 * {{ website.sitename }}：[@{{ website.name }}]({{ website.url }})
 {% endfor %}
 
-## Skill Keywords
+## 编程语言
 
-{% for category in site.data.skills %}
-### {{ category.name }}
 <div class="btn-inline">
-{% for keyword in category.keywords %}
-<button class="btn btn-outline" type="button">{{ keyword }}</button>
+{% for skill in site.data.skills %}
+<button class="btn btn-outline" type="button">{{ skill }}</button>
 {% endfor %}
 </div>
+
+## 兴趣方向
+
+<div class="btn-inline">
+{% for direction in site.data.learning_direction %}
+<button class="btn btn-outline" type="button">{{ direction }}</button>
+{% endfor %}
+</div>
+
+## 完成课程
+
+{% for zs in site.data.zhengshu %}
+* {{ zs.pingtai }}: {{ zs.name }}
 {% endfor %}
