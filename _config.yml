@@ -2,7 +2,7 @@
 #   Main Configs   #
 # ---------------- #
 baseurl:
-url: https://cooli7wa.github.io/
+url: cooli7wa.com
 date_format: "ordinal"
 title: Cooli7wa
 subtitle: "目标和坚持，会改变一切"
@@ -104,8 +104,8 @@ gitment:
 gitalk:
     owner: cooli7wa
     repo: blog_comments
-    clientID: d8f120566dbd316dbbf5
-    clientSecret: 2832bba22a0d91d035f382f492903c1b19db65fc 
+    clientID: 4dbc2df55a5296fec89a
+    clientSecret: 0620a990efef20404aa05e94894555571edfbd35
 # 在使用其它评论组件时可点击显示 Disqus
 lazy_load_disqus : false
 
