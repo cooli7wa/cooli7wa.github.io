@@ -15,9 +15,9 @@ permalink: /about/
 {% for info in site.data.social %}
 {% if {{info.type}} == "website" %}
 * {{ info.sitename }}：[@{{ info.name }}]({{ info.url }})
-{% else {{ info.type }} == "email" %}
+{% elseif {{ info.type }} == "email" %}
 * 邮箱：{{ info.address }}
-{% else {{ info.type }} == "other" %}
+{% elseif {{ info.type }} == "other" %}
 * {{ info.name }}：{{ info.number }}
 {% endif %}
 {% endfor %}
