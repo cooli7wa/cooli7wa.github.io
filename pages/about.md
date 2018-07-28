@@ -12,14 +12,8 @@ permalink: /about/
 
 ## 联系
 
-{% for info in site.data.social %}
-{% if {{info.type}} == "website" %}
-* {{ info.sitename }}：[@{{ info.name }}]({{ info.url }})
-{% elseif {{ info.type }} == "email" %}
-* 邮箱：{{ info.address }}
-{% elseif {{ info.type }} == "other" %}
-* {{ info.name }}：{{ info.number }}
-{% endif %}
+{% for social in site.data.social %}
+* {{ social.type }} : {{ social.value }}
 {% endfor %}
 
 ## 编程语言

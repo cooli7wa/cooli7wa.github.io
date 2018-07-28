@@ -1,20 +1,12 @@
-- type: website
-  sitename: GitHub
-  name: cooli7wa
-  url: https://github.com/cooli7wa
+- type: "GitHub"
+  value: "[Cooli7wa](https://github.com/cooli7wa)"
 
-#- sitename: LinkedIn
-#  name: mazhuang
-#  url: https://www.linkedin.com/in/mazhuang
+- type: 博客
+  value: "[Cooli7wa](https://cooli7wa.github.io)"
 
-- type: website
-  sitename: 博客
-  name: Cooli7wa
-  url: https://cooli7wa.github.io/
+- type: 邮箱
+  value: https://cooli7wa67@163.com
 
-- type: email
-  address: https://cooli7wa67@163.com/
+- type: 微信
+  value: lqmagic
 
-- type: other
-  name: 微信
-  number: lqmagic
