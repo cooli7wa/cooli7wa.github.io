@@ -1,4 +1,5 @@
-- sitename: GitHub
+- type: website
+  sitename: GitHub
   name: cooli7wa
   url: https://github.com/cooli7wa
 
@@ -6,6 +7,14 @@
 #  name: mazhuang
 #  url: https://www.linkedin.com/in/mazhuang
 
-- sitename: 博客
+- type: website
+  sitename: 博客
   name: Cooli7wa
   url: https://cooli7wa.github.io/
+
+- type: email
+  address: https://cooli7wa67@163.com/
+
+- type: other
+  name: 微信
+  number: lqmagic
