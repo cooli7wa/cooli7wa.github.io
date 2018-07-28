@@ -125,4 +125,5 @@ simple_jekyll_search:
 google:
     analytics_id: UA-80669434-1
 
-github: [metadata]
+#don't open this, will cause My Popular Repositories missing
+#github: [metadata]
