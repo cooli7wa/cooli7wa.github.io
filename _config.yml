@@ -2,6 +2,7 @@
 #   Main Configs   #
 # ---------------- #
 baseurl:
+# don't change this to www.cooli7wa.com
 url: https://cooli7wa.github.io/
 date_format: "ordinal"
 title: Cooli7wa
