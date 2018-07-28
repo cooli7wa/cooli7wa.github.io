@@ -13,13 +13,13 @@ permalink: /about/
 ## 联系
 
 {% for info in site.data.social %}
-{if {{info.type}} == "website"}
+{% if {{info.type}} == "website" %}
 * {{ info.sitename }}：[@{{ info.name }}]({{ info.url }})
-{else {{ info.type }} == "email"}
+{% else {{ info.type }} == "email" %}
 * 邮箱：{{ info.address }}
-{else {{ info.type }} == "other"}
+{% else {{ info.type }} == "other" %}
 * {{ info.name }}：{{ info.number }}
-{/if}
+{% endif %}
 {% endfor %}
 
 ## 编程语言
