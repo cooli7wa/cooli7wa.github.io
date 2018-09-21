@@ -1,7 +1,7 @@
 ---
 layout: page
 title: About
-description: 目标和坚持，会改变一切
+description: 有些事不是看到了希望才去坚持，而是坚持了才有希望
 keywords: Cooli7wa
 comments: False
 menu: 关于
