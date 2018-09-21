@@ -1,14 +1,15 @@
 ---
 layout: page
 title: About
-description: 有些事不是看到了希望才去坚持，而是坚持了才有希望
+description:
 keywords: Cooli7wa
 comments: False
 menu: 关于
 permalink: /about/
 ---
 
-眼光放得长远一些，看到的东西也会多一些，生活也就会过得更有意义一点
+#### 有些事不是看到了希望才去坚持，而是坚持了才有希望
+
 
 ## 联系
 
