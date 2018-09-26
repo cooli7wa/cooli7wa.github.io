@@ -3,7 +3,8 @@
 # ---------------- #
 baseurl:
 # don't change this to www.cooli7wa.com
-url: https://cooli7wa.github.io/
+#url: https://cooli7wa.github.io/
+url: https://cooli7wa.com/
 date_format: "ordinal"
 title: Cooli7wa
 subtitle: "目标和坚持，会改变一切"
