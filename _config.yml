@@ -62,8 +62,6 @@ subscribe_rss: /feed.xml
 markdown: kramdown
 kramdown:
     input: GFM
-    auto_ids: true
-    syntax_hightlighter: rouge
 highlighter: rouge
 paginate: 8
 lsi: false
