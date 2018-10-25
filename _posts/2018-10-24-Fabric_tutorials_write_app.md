@@ -2,7 +2,7 @@
 layout: post
 title: Fabric_tutorials_write_app
 description:
-categories: Fabric_tutorials_write_app
+categories: study
 author: cooli7wa
 ---
 这篇简单介绍下 Writing Your First Application 中的一些注意点。
