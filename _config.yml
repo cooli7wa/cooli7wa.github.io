@@ -126,3 +126,5 @@ google:
 
 #don't open this, will cause My Popular Repositories missing
 #github: [metadata]
+
+theme: jekyll-theme-cayman
