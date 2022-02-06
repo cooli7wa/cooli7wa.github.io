@@ -1,0 +1,142 @@
+I"�<p>如何下载、编译和运行 bitcoin 核心客户端。</p>
+
+<p>这是完整节点客户端，有安装版和编译版，适合于普通用户和开发者。</p>
+
+<h2 id="安装版">安装版</h2>
+
+<p>在 bitcoin  <a href="https://bitcoin.org/zh_CN/download">官网</a> 下载，包括 windows、macOS、linux、ubuntu 等版本，下载后安装即可。</p>
+
+<h2 id="编译版">编译版</h2>
+
+<ol>
+  <li>
+    <p>clone bitcoin 源码并切换版本</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td> --><td class="rouge-code"><pre>$ git clone https://github.com/bitcoin/bitcoin.git
+$ cd bitcoin &amp;&amp; git tag
+...
+v0.16.1
+v0.16.1rc1
+v0.16.1rc2
+v0.16.2
+v0.16.2rc1
+v0.16.2rc2
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+    <p>这里列出的是所有发型版本，rc 后缀的是预发行版本，可以用来测试。没有后缀的是稳定版本，可以直接在产品上运行。这里选择现在最新的 0.16.2 版本</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ git checkout v0.16.0
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+  </li>
+  <li>
+    <p>安装相关依赖</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ sudo apt-get install -y  autoconf libtool pkg-config libboost-all-dev libssl-dev libevent-dev
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+  </li>
+  <li>
+    <p>安装 berkeleyDB
+berkeleyDB 是一款嵌入式数据库, bitcoin 使用它的特定版本<code class="language-plaintext highlighter-rouge">berkeleyDB-4.8.30</code>作为钱包数据库. </p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td> --><td class="rouge-code"><pre>$ sudo apt-get install software-properties-common
+$ sudo add-apt-repository ppa:bitcoin/bitcoin
+$ sudo apt-get update
+$ sudo apt-get install libdb4.8-dev libdb4.8++-dev
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+  </li>
+  <li>
+    <p>编译</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td> --><td class="rouge-code"><pre>$ ./autogen.sh
+$ ./configure 
+$ make
+$ sudo make install
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+    <p>install 会将 bitcoind 和 bitcoin-cli 安装到 /usr/local/bin/ 下</p>
+  </li>
+  <li>
+    <p>运行</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ bitcoind -daemon -datadir=&lt;datadir&gt;
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+
+    <p>需要很长一段时间来同步所有数据，现在所有数据超过了 200G。</p>
+  </li>
+  <li>
+    <p>通过命令行使用 RPC-API 接口
+所有 RPC-API 接口定义可以查看<a href="https://en.bitcoin.it/wiki/Original_Bitcoin_client/API_calls_list">官方的wiki</a>，也可以通过 help 来查看。</p>
+
+    <p>当你第一次运行 bitcoin-cli 时，它会提醒你用一个安全密码给 JSON-RPC 接口创建一个配置文件 :</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td> --><td class="rouge-code"><pre>$ bitcoin-cli help
+error: Could not locate RPC credentials. No authentication cookie could be found, and RPC password is not set.  See -rpcpassword and -stdinrpcpass.  Configuration file: (/home/cooli7wa/.bitcoin/bitcoin.conf)
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+
+    <p>在你喜欢的编辑器中编辑配置文件并设置参数，将其中的密码替换成 bitcoind 推荐的强密码。不要使用出现在这里的密码。在 ~/.bitcoin 目录下创建一个名为 bitcoin.conf 的文件，然后输入用户名和密码:</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td> --><td class="rouge-code"><pre>$ rpcuser=cooli7wa
+$ rpcpassword=2XA4DuKNCbtZXsBQRRNDEwEY2nM6M4H9Tx5dFjoAVVbK
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ bitcoin-cli xxx
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+  </li>
+  <li>
+    <p>停止 bitcoind</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ bitcoin-cli stop
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+  </li>
+  <li>
+    <p>安装 bitcoin-qt</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libprotobuf-dev protobuf-compiler libqrencode-dev
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+
+    <p>重新执行一遍配置和编译:</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td> --><td class="rouge-code"><pre>$ ./autogen.sh
+$ ./configure
+$ make
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+
+    <p>启动图形界面</p>
+
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td> --><td class="rouge-code"><pre>$ ./src/qt/bitcoin-qt -datadir=&lt;datadir&gt;
+</pre></td></tr></tbody></table></code></pre></div>    </div>
+
+    <p><img src="/images/md/bitcoin_compile_run_0.png" alt="" /></p>
+
+    <p>同步同样需要很多时间<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script></p>
+  </li>
+</ol>
+:ET

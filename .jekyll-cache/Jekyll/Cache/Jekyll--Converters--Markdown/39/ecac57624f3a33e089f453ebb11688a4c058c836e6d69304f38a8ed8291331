@@ -1,0 +1,754 @@
+I"�<p>这篇文章学习以太坊转账中交易生成流程。</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td> --><td class="rouge-code"><pre><span class="c">// internal/ethapi/api.go</span>
+
+<span class="c">// SendTransaction will create a transaction from the given arguments and</span>
+<span class="c">// tries to sign it with the key associated with args.To. If the given passwd isn't</span>
+<span class="c">// able to decrypt the key it fails.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span><span class="n">PrivateAccountAPI</span><span class="p">)</span> <span class="n">SendTransaction</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">args</span> <span class="n">SendTxArgs</span><span class="p">,</span> <span class="n">passwd</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="n">common</span><span class="o">.</span><span class="n">Hash</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Nonce</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="c">// Hold the addresse's mutex around signing to prevent concurrent assignment of</span>
+        <span class="c">// the same nonce to multiple accounts.</span>
+        <span class="n">s</span><span class="o">.</span><span class="n">nonceLock</span><span class="o">.</span><span class="n">LockAddr</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">From</span><span class="p">)</span>
+        <span class="k">defer</span> <span class="n">s</span><span class="o">.</span><span class="n">nonceLock</span><span class="o">.</span><span class="n">UnlockAddr</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">From</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">signed</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">s</span><span class="o">.</span><span class="n">signTransaction</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">args</span><span class="p">,</span> <span class="n">passwd</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Warn</span><span class="p">(</span><span class="s">"Failed transaction send attempt"</span><span class="p">,</span> <span class="s">"from"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">From</span><span class="p">,</span> <span class="s">"to"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">To</span><span class="p">,</span> <span class="s">"value"</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">Value</span><span class="o">.</span><span class="n">ToInt</span><span class="p">(),</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">Hash</span><span class="p">{},</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">submitTransaction</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="n">signed</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果 args.Nonce == nil，那么后面会通过 GetPoolNonce() 来获取一个 Nonce，这里需要上锁，也可以指定 Nonce。</p>
+
+<p>signTransaction 是构造交易和签名的流程。</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+</pre></td> --><td class="rouge-code"><pre><span class="c">// signTransaction sets defaults and signs the given transaction</span>
+<span class="c">// NOTE: the caller needs to ensure that the nonceLock is held, if applicable,</span>
+<span class="c">// and release it after the transaction has been submitted to the tx pool</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span><span class="n">PrivateAccountAPI</span><span class="p">)</span> <span class="n">signTransaction</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">args</span> <span class="o">*</span><span class="n">SendTxArgs</span><span class="p">,</span> <span class="n">passwd</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// Look up the wallet containing the requested signer</span>
+    <span class="n">account</span> <span class="o">:=</span> <span class="n">accounts</span><span class="o">.</span><span class="n">Account</span><span class="p">{</span><span class="n">Address</span><span class="o">:</span> <span class="n">args</span><span class="o">.</span><span class="n">From</span><span class="p">}</span>
+    <span class="n">wallet</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">s</span><span class="o">.</span><span class="n">am</span><span class="o">.</span><span class="n">Find</span><span class="p">(</span><span class="n">account</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="c">// Set some sanity defaults and terminate on failure</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">args</span><span class="o">.</span><span class="n">setDefaults</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">b</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="c">// Assemble the transaction and sign with the wallet</span>
+    <span class="n">tx</span> <span class="o">:=</span> <span class="n">args</span><span class="o">.</span><span class="n">toTransaction</span><span class="p">()</span>
+
+    <span class="k">var</span> <span class="n">chainID</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>
+    <span class="k">if</span> <span class="n">config</span> <span class="o">:=</span> <span class="n">s</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">ChainConfig</span><span class="p">();</span> <span class="n">config</span><span class="o">.</span><span class="n">IsEIP155</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">CurrentBlock</span><span class="p">()</span><span class="o">.</span><span class="n">Number</span><span class="p">())</span> <span class="p">{</span>
+        <span class="n">chainID</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">ChainID</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">wallet</span><span class="o">.</span><span class="n">SignTxWithPassphrase</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">passwd</span><span class="p">,</span> <span class="n">tx</span><span class="p">,</span> <span class="n">chainID</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>setDefaults 是对交易体做一些默认配置。
+toTransaction 是构造交易体。
+SignTxWithPassphrase 是签名流程。
+先看下 setDefaults ：</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+</pre></td> --><td class="rouge-code"><pre><span class="c">// setDefaults is a helper function that fills in default values for unspecified tx fields.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">args</span> <span class="o">*</span><span class="n">SendTxArgs</span><span class="p">)</span> <span class="n">setDefaults</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">b</span> <span class="n">Backend</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Gas</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">Gas</span> <span class="o">=</span> <span class="nb">new</span><span class="p">(</span><span class="n">hexutil</span><span class="o">.</span><span class="n">Uint64</span><span class="p">)</span>
+        <span class="o">*</span><span class="p">(</span><span class="o">*</span><span class="kt">uint64</span><span class="p">)(</span><span class="n">args</span><span class="o">.</span><span class="n">Gas</span><span class="p">)</span> <span class="o">=</span> <span class="m">90000</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">GasPrice</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">price</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">SuggestPrice</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">err</span>
+        <span class="p">}</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">GasPrice</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">hexutil</span><span class="o">.</span><span class="n">Big</span><span class="p">)(</span><span class="n">price</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Value</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">Value</span> <span class="o">=</span> <span class="nb">new</span><span class="p">(</span><span class="n">hexutil</span><span class="o">.</span><span class="n">Big</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Nonce</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">nonce</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">GetPoolNonce</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">From</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">err</span>
+        <span class="p">}</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">Nonce</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">hexutil</span><span class="o">.</span><span class="n">Uint64</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">nonce</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Data</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="n">args</span><span class="o">.</span><span class="n">Input</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">bytes</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Data</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Input</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="s">`Both "data" and "input" are set and not equal. Please use "input" to pass transaction call data.`</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">To</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="c">// Contract creation</span>
+        <span class="k">var</span> <span class="n">input</span> <span class="p">[]</span><span class="kt">byte</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Data</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">input</span> <span class="o">=</span> <span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Data</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Input</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">input</span> <span class="o">=</span> <span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Input</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">input</span><span class="p">)</span> <span class="o">==</span> <span class="m">0</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">errors</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="s">`contract creation without any data provided`</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果不提供 gas 限制值，那么默认是 90000.</p>
+
+<p>如果不提供 GasPrice，那么会通过 SuggestPrice() 获得一个推荐值。</p>
+
+<p>如果没有 nonce， 那么会通过 GetPoolNonce() 来得到一个。</p>
+
+<p>在 to == nil 的时候，是创建智能合约，那么会对 data 和 input 进行一系列检查。</p>
+
+<p>下面是构造交易体流程：</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td> --><td class="rouge-code"><pre><span class="k">func</span> <span class="p">(</span><span class="n">args</span> <span class="o">*</span><span class="n">SendTxArgs</span><span class="p">)</span> <span class="n">toTransaction</span><span class="p">()</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span> <span class="p">{</span>
+    <span class="k">var</span> <span class="n">input</span> <span class="p">[]</span><span class="kt">byte</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Data</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">input</span> <span class="o">=</span> <span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Data</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">Input</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">input</span> <span class="o">=</span> <span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Input</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">To</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">types</span><span class="o">.</span><span class="n">NewContractCreation</span><span class="p">(</span><span class="kt">uint64</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Nonce</span><span class="p">),</span> <span class="p">(</span><span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">)(</span><span class="n">args</span><span class="o">.</span><span class="n">Value</span><span class="p">),</span> <span class="kt">uint64</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Gas</span><span class="p">),</span> <span class="p">(</span><span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">)(</span><span class="n">args</span><span class="o">.</span><span class="n">GasPrice</span><span class="p">),</span> <span class="n">input</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">types</span><span class="o">.</span><span class="n">NewTransaction</span><span class="p">(</span><span class="kt">uint64</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Nonce</span><span class="p">),</span> <span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">To</span><span class="p">,</span> <span class="p">(</span><span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">)(</span><span class="n">args</span><span class="o">.</span><span class="n">Value</span><span class="p">),</span> <span class="kt">uint64</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="o">.</span><span class="n">Gas</span><span class="p">),</span> <span class="p">(</span><span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">)(</span><span class="n">args</span><span class="o">.</span><span class="n">GasPrice</span><span class="p">),</span> <span class="n">input</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td> --><td class="rouge-code"><pre><span class="k">func</span> <span class="n">NewTransaction</span><span class="p">(</span><span class="n">nonce</span> <span class="kt">uint64</span><span class="p">,</span> <span class="n">to</span> <span class="n">common</span><span class="o">.</span><span class="n">Address</span><span class="p">,</span> <span class="n">amount</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">,</span> <span class="n">gasLimit</span> <span class="kt">uint64</span><span class="p">,</span> <span class="n">gasPrice</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">,</span> <span class="n">data</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="o">*</span><span class="n">Transaction</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">newTransaction</span><span class="p">(</span><span class="n">nonce</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">to</span><span class="p">,</span> <span class="n">amount</span><span class="p">,</span> <span class="n">gasLimit</span><span class="p">,</span> <span class="n">gasPrice</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td> --><td class="rouge-code"><pre><span class="k">func</span> <span class="n">newTransaction</span><span class="p">(</span><span class="n">nonce</span> <span class="kt">uint64</span><span class="p">,</span> <span class="n">to</span> <span class="o">*</span><span class="n">common</span><span class="o">.</span><span class="n">Address</span><span class="p">,</span> <span class="n">amount</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">,</span> <span class="n">gasLimit</span> <span class="kt">uint64</span><span class="p">,</span> <span class="n">gasPrice</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">,</span> <span class="n">data</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="o">*</span><span class="n">Transaction</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;</span> <span class="m">0</span> <span class="p">{</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">common</span><span class="o">.</span><span class="n">CopyBytes</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">d</span> <span class="o">:=</span> <span class="n">txdata</span><span class="p">{</span>
+        <span class="n">AccountNonce</span><span class="o">:</span> <span class="n">nonce</span><span class="p">,</span>
+        <span class="n">Recipient</span><span class="o">:</span>    <span class="n">to</span><span class="p">,</span>
+        <span class="n">Payload</span><span class="o">:</span>      <span class="n">data</span><span class="p">,</span>
+        <span class="n">Amount</span><span class="o">:</span>       <span class="nb">new</span><span class="p">(</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">),</span>
+        <span class="n">GasLimit</span><span class="o">:</span>     <span class="n">gasLimit</span><span class="p">,</span>
+        <span class="n">Price</span><span class="o">:</span>        <span class="nb">new</span><span class="p">(</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">),</span>
+        <span class="n">V</span><span class="o">:</span>            <span class="nb">new</span><span class="p">(</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">),</span>
+        <span class="n">R</span><span class="o">:</span>            <span class="nb">new</span><span class="p">(</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">),</span>
+        <span class="n">S</span><span class="o">:</span>            <span class="nb">new</span><span class="p">(</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">amount</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">Amount</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">gasPrice</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">Price</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="n">gasPrice</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">Transaction</span><span class="p">{</span><span class="n">data</span><span class="o">:</span> <span class="n">d</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>下面是签名的流程：</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td> --><td class="rouge-code"><pre><span class="c">// SignTxWithPassphrase signs the transaction if the private key matching the</span>
+<span class="c">// given address can be decrypted with the given passphrase.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">ks</span> <span class="o">*</span><span class="n">KeyStore</span><span class="p">)</span> <span class="n">SignTxWithPassphrase</span><span class="p">(</span><span class="n">a</span> <span class="n">accounts</span><span class="o">.</span><span class="n">Account</span><span class="p">,</span> <span class="n">passphrase</span> <span class="kt">string</span><span class="p">,</span> <span class="n">tx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">,</span> <span class="n">chainID</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">ks</span><span class="o">.</span><span class="n">getDecryptedKey</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">passphrase</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">defer</span> <span class="n">zeroKey</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">PrivateKey</span><span class="p">)</span>
+
+    <span class="c">// Depending on the presence of the chain ID, sign with EIP155 or homestead</span>
+    <span class="k">if</span> <span class="n">chainID</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">types</span><span class="o">.</span><span class="n">SignTx</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">NewEIP155Signer</span><span class="p">(</span><span class="n">chainID</span><span class="p">),</span> <span class="n">key</span><span class="o">.</span><span class="n">PrivateKey</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">types</span><span class="o">.</span><span class="n">SignTx</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">HomesteadSigner</span><span class="p">{},</span> <span class="n">key</span><span class="o">.</span><span class="n">PrivateKey</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>先通过密码得到解密的密钥，然后调用 SignTx 来签名，注意的是 defer zeroKey，这里保证在函数结束的时候，会清空内存中的私钥。</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td> --><td class="rouge-code"><pre><span class="c">// SignTx signs the transaction using the given signer and private key</span>
+<span class="k">func</span> <span class="n">SignTx</span><span class="p">(</span><span class="n">tx</span> <span class="o">*</span><span class="n">Transaction</span><span class="p">,</span> <span class="n">s</span> <span class="n">Signer</span><span class="p">,</span> <span class="n">prv</span> <span class="o">*</span><span class="n">ecdsa</span><span class="o">.</span><span class="n">PrivateKey</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">Transaction</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">h</span> <span class="o">:=</span> <span class="n">s</span><span class="o">.</span><span class="n">Hash</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span>
+    <span class="n">sig</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">crypto</span><span class="o">.</span><span class="n">Sign</span><span class="p">(</span><span class="n">h</span><span class="p">[</span><span class="o">:</span><span class="p">],</span> <span class="n">prv</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">tx</span><span class="o">.</span><span class="n">WithSignature</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>先求 hash 然后做 sign。</p>
+
+<p>看下 hash 的过程：</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td> --><td class="rouge-code"><pre><span class="c">// Hash returns the hash to be signed by the sender.</span>
+<span class="c">// It does not uniquely identify the transaction.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">fs</span> <span class="n">FrontierSigner</span><span class="p">)</span> <span class="n">Hash</span><span class="p">(</span><span class="n">tx</span> <span class="o">*</span><span class="n">Transaction</span><span class="p">)</span> <span class="n">common</span><span class="o">.</span><span class="n">Hash</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">rlpHash</span><span class="p">([]</span><span class="k">interface</span><span class="p">{}{</span>
+        <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">AccountNonce</span><span class="p">,</span>
+        <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Price</span><span class="p">,</span>
+        <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">GasLimit</span><span class="p">,</span>
+        <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Recipient</span><span class="p">,</span>
+        <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Amount</span><span class="p">,</span>
+        <span class="n">tx</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Payload</span><span class="p">,</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这里是 rlpHash，即先做 RLP 转换，然后做 Keccak256 hash。这里 hash 的数据，包括：账户 nonce，gas price，gas limint，目标地址，金额，额外数据。</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre></td> --><td class="rouge-code"><pre><span class="c">// submitTransaction is a helper function that submits tx to txPool and logs a message.</span>
+<span class="k">func</span> <span class="n">submitTransaction</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">b</span> <span class="n">Backend</span><span class="p">,</span> <span class="n">tx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">)</span> <span class="p">(</span><span class="n">common</span><span class="o">.</span><span class="n">Hash</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">SendTx</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">tx</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">Hash</span><span class="p">{},</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">tx</span><span class="o">.</span><span class="n">To</span><span class="p">()</span> <span class="o">==</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">signer</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">MakeSigner</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">ChainConfig</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">CurrentBlock</span><span class="p">()</span><span class="o">.</span><span class="n">Number</span><span class="p">())</span>
+        <span class="n">from</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">Sender</span><span class="p">(</span><span class="n">signer</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">Hash</span><span class="p">{},</span> <span class="n">err</span>
+        <span class="p">}</span>
+        <span class="n">addr</span> <span class="o">:=</span> <span class="n">crypto</span><span class="o">.</span><span class="n">CreateAddress</span><span class="p">(</span><span class="n">from</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">Nonce</span><span class="p">())</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Info</span><span class="p">(</span><span class="s">"Submitted contract creation"</span><span class="p">,</span> <span class="s">"fullhash"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">Hash</span><span class="p">()</span><span class="o">.</span><span class="n">Hex</span><span class="p">(),</span> <span class="s">"contract"</span><span class="p">,</span> <span class="n">addr</span><span class="o">.</span><span class="n">Hex</span><span class="p">())</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Info</span><span class="p">(</span><span class="s">"Submitted transaction"</span><span class="p">,</span> <span class="s">"fullhash"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">Hash</span><span class="p">()</span><span class="o">.</span><span class="n">Hex</span><span class="p">(),</span> <span class="s">"recipient"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">To</span><span class="p">())</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">tx</span><span class="o">.</span><span class="n">Hash</span><span class="p">(),</span> <span class="no">nil</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这里提交交易体到网络上，并且如果是创建智能合约的交易，那么会将智能合约地址计算出来，并记录到 log，最后返回交易体的 hash。</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td> --><td class="rouge-code"><pre><span class="c">// CreateAddress creates an ethereum address given the bytes and the nonce</span>
+<span class="k">func</span> <span class="n">CreateAddress</span><span class="p">(</span><span class="n">b</span> <span class="n">common</span><span class="o">.</span><span class="n">Address</span><span class="p">,</span> <span class="n">nonce</span> <span class="kt">uint64</span><span class="p">)</span> <span class="n">common</span><span class="o">.</span><span class="n">Address</span> <span class="p">{</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">rlp</span><span class="o">.</span><span class="n">EncodeToBytes</span><span class="p">([]</span><span class="k">interface</span><span class="p">{}{</span><span class="n">b</span><span class="p">,</span> <span class="n">nonce</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">BytesToAddress</span><span class="p">(</span><span class="n">Keccak256</span><span class="p">(</span><span class="n">data</span><span class="p">)[</span><span class="m">12</span><span class="o">:</span><span class="p">])</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>智能合约的地址是通过 创建者地址 和 nonce 计算出来的，可以保证唯一。</p>
+
+<p>再看下 SendTx 的流程：</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td> --><td class="rouge-code"><pre><span class="k">func</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span><span class="n">EthAPIBackend</span><span class="p">)</span> <span class="n">SendTx</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">signedTx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">b</span><span class="o">.</span><span class="n">eth</span><span class="o">.</span><span class="n">txPool</span><span class="o">.</span><span class="n">AddLocal</span><span class="p">(</span><span class="n">signedTx</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td> --><td class="rouge-code"><pre><span class="c">// AddLocal enqueues a single transaction into the pool if it is valid, marking</span>
+<span class="c">// the sender as a local one in the mean time, ensuring it goes around the local</span>
+<span class="c">// pricing constraints.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">pool</span> <span class="o">*</span><span class="n">TxPool</span><span class="p">)</span> <span class="n">AddLocal</span><span class="p">(</span><span class="n">tx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">pool</span><span class="o">.</span><span class="n">addTx</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="o">!</span><span class="n">pool</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">NoLocals</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+</pre></td> --><td class="rouge-code"><pre><span class="c">// addTx enqueues a single transaction into the pool if it is valid.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">pool</span> <span class="o">*</span><span class="n">TxPool</span><span class="p">)</span> <span class="n">addTx</span><span class="p">(</span><span class="n">tx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">,</span> <span class="n">local</span> <span class="kt">bool</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">mu</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+    <span class="k">defer</span> <span class="n">pool</span><span class="o">.</span><span class="n">mu</span><span class="o">.</span><span class="n">Unlock</span><span class="p">()</span>
+
+    <span class="c">// Try to inject the transaction and update any state</span>
+    <span class="n">replace</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">pool</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">local</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="c">// If we added a new transaction, run promotion checks and return</span>
+    <span class="k">if</span> <span class="o">!</span><span class="n">replace</span> <span class="p">{</span>
+        <span class="n">from</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">Sender</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">signer</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span> <span class="c">// already validated</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">promoteExecutables</span><span class="p">([]</span><span class="n">common</span><span class="o">.</span><span class="n">Address</span><span class="p">{</span><span class="n">from</span><span class="p">})</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>主要的验证流程在 add 内：</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+</pre></td> --><td class="rouge-code"><pre><span class="c">// add validates a transaction and inserts it into the non-executable queue for</span>
+<span class="c">// later pending promotion and execution. If the transaction is a replacement for</span>
+<span class="c">// an already pending or queued one, it overwrites the previous and returns this</span>
+<span class="c">// so outer code doesn't uselessly call promote.</span>
+<span class="c">//</span>
+<span class="c">// If a newly added transaction is marked as local, its sending account will be</span>
+<span class="c">// whitelisted, preventing any associated transaction from being dropped out of</span>
+<span class="c">// the pool due to pricing constraints.</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">pool</span> <span class="o">*</span><span class="n">TxPool</span><span class="p">)</span> <span class="n">add</span><span class="p">(</span><span class="n">tx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">,</span> <span class="n">local</span> <span class="kt">bool</span><span class="p">)</span> <span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// If the transaction is already known, discard it</span>
+    <span class="n">hash</span> <span class="o">:=</span> <span class="n">tx</span><span class="o">.</span><span class="n">Hash</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">all</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">hash</span><span class="p">)</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Trace</span><span class="p">(</span><span class="s">"Discarding already known transaction"</span><span class="p">,</span> <span class="s">"hash"</span><span class="p">,</span> <span class="n">hash</span><span class="p">)</span>
+        <span class="k">return</span> <span class="no">false</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"known transaction: %x"</span><span class="p">,</span> <span class="n">hash</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="c">// If the transaction fails basic validation, discard it</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">pool</span><span class="o">.</span><span class="n">validateTx</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">local</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Trace</span><span class="p">(</span><span class="s">"Discarding invalid transaction"</span><span class="p">,</span> <span class="s">"hash"</span><span class="p">,</span> <span class="n">hash</span><span class="p">,</span> <span class="s">"err"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="n">invalidTxCounter</span><span class="o">.</span><span class="n">Inc</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="no">false</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="c">// If the transaction pool is full, discard underpriced transactions</span>
+    <span class="k">if</span> <span class="kt">uint64</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">all</span><span class="o">.</span><span class="n">Count</span><span class="p">())</span> <span class="o">&gt;=</span> <span class="n">pool</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">GlobalSlots</span><span class="o">+</span><span class="n">pool</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">GlobalQueue</span> <span class="p">{</span>
+        <span class="c">// If the new transaction is underpriced, don't accept it</span>
+        <span class="k">if</span> <span class="o">!</span><span class="n">local</span> <span class="o">&amp;&amp;</span> <span class="n">pool</span><span class="o">.</span><span class="n">priced</span><span class="o">.</span><span class="n">Underpriced</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">pool</span><span class="o">.</span><span class="n">locals</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Trace</span><span class="p">(</span><span class="s">"Discarding underpriced transaction"</span><span class="p">,</span> <span class="s">"hash"</span><span class="p">,</span> <span class="n">hash</span><span class="p">,</span> <span class="s">"price"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">GasPrice</span><span class="p">())</span>
+            <span class="n">underpricedTxCounter</span><span class="o">.</span><span class="n">Inc</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="no">false</span><span class="p">,</span> <span class="n">ErrUnderpriced</span>
+        <span class="p">}</span>
+        <span class="c">// New transaction is better than our worse ones, make room for it</span>
+        <span class="n">drop</span> <span class="o">:=</span> <span class="n">pool</span><span class="o">.</span><span class="n">priced</span><span class="o">.</span><span class="n">Discard</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">all</span><span class="o">.</span><span class="n">Count</span><span class="p">()</span><span class="o">-</span><span class="kt">int</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">GlobalSlots</span><span class="o">+</span><span class="n">pool</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">GlobalQueue</span><span class="o">-</span><span class="m">1</span><span class="p">),</span> <span class="n">pool</span><span class="o">.</span><span class="n">locals</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">tx</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">drop</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Trace</span><span class="p">(</span><span class="s">"Discarding freshly underpriced transaction"</span><span class="p">,</span> <span class="s">"hash"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">Hash</span><span class="p">(),</span> <span class="s">"price"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">GasPrice</span><span class="p">())</span>
+            <span class="n">underpricedTxCounter</span><span class="o">.</span><span class="n">Inc</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">removeTx</span><span class="p">(</span><span class="n">tx</span><span class="o">.</span><span class="n">Hash</span><span class="p">(),</span> <span class="no">false</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="c">// If the transaction is replacing an already pending one, do directly</span>
+    <span class="n">from</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">Sender</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">signer</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span> <span class="c">// already validated</span>
+    <span class="k">if</span> <span class="n">list</span> <span class="o">:=</span> <span class="n">pool</span><span class="o">.</span><span class="n">pending</span><span class="p">[</span><span class="n">from</span><span class="p">];</span> <span class="n">list</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">&amp;&amp;</span> <span class="n">list</span><span class="o">.</span><span class="n">Overlaps</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c">// Nonce already pending, check if required price bump is met</span>
+        <span class="n">inserted</span><span class="p">,</span> <span class="n">old</span> <span class="o">:=</span> <span class="n">list</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">pool</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">PriceBump</span><span class="p">)</span>
+        <span class="k">if</span> <span class="o">!</span><span class="n">inserted</span> <span class="p">{</span>
+            <span class="n">pendingDiscardCounter</span><span class="o">.</span><span class="n">Inc</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="no">false</span><span class="p">,</span> <span class="n">ErrReplaceUnderpriced</span>
+        <span class="p">}</span>
+        <span class="c">// New transaction is better, replace old one</span>
+        <span class="k">if</span> <span class="n">old</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">all</span><span class="o">.</span><span class="n">Remove</span><span class="p">(</span><span class="n">old</span><span class="o">.</span><span class="n">Hash</span><span class="p">())</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">priced</span><span class="o">.</span><span class="n">Removed</span><span class="p">()</span>
+            <span class="n">pendingReplaceCounter</span><span class="o">.</span><span class="n">Inc</span><span class="p">(</span><span class="m">1</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">all</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">priced</span><span class="o">.</span><span class="n">Put</span><span class="p">(</span><span class="n">tx</span><span class="p">)</span>
+        <span class="n">pool</span><span class="o">.</span><span class="n">journalTx</span><span class="p">(</span><span class="n">from</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">Trace</span><span class="p">(</span><span class="s">"Pooled new executable transaction"</span><span class="p">,</span> <span class="s">"hash"</span><span class="p">,</span> <span class="n">hash</span><span class="p">,</span> <span class="s">"from"</span><span class="p">,</span> <span class="n">from</span><span class="p">,</span> <span class="s">"to"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">To</span><span class="p">())</span>
+
+        <span class="c">// We've directly injected a replacement transaction, notify subsystems</span>
+        <span class="k">go</span> <span class="n">pool</span><span class="o">.</span><span class="n">txFeed</span><span class="o">.</span><span class="n">Send</span><span class="p">(</span><span class="n">NewTxsEvent</span><span class="p">{</span><span class="n">types</span><span class="o">.</span><span class="n">Transactions</span><span class="p">{</span><span class="n">tx</span><span class="p">}})</span>
+
+        <span class="k">return</span> <span class="n">old</span> <span class="o">!=</span> <span class="no">nil</span><span class="p">,</span> <span class="no">nil</span>
+    <span class="p">}</span>
+    <span class="c">// New transaction isn't replacing a pending one, push into queue</span>
+    <span class="n">replace</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">pool</span><span class="o">.</span><span class="n">enqueueTx</span><span class="p">(</span><span class="n">hash</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">false</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="c">// Mark local addresses and journal local transactions</span>
+    <span class="k">if</span> <span class="n">local</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="o">!</span><span class="n">pool</span><span class="o">.</span><span class="n">locals</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">from</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Info</span><span class="p">(</span><span class="s">"Setting new local account"</span><span class="p">,</span> <span class="s">"address"</span><span class="p">,</span> <span class="n">from</span><span class="p">)</span>
+            <span class="n">pool</span><span class="o">.</span><span class="n">locals</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">from</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">pool</span><span class="o">.</span><span class="n">journalTx</span><span class="p">(</span><span class="n">from</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">Trace</span><span class="p">(</span><span class="s">"Pooled new future transaction"</span><span class="p">,</span> <span class="s">"hash"</span><span class="p">,</span> <span class="n">hash</span><span class="p">,</span> <span class="s">"from"</span><span class="p">,</span> <span class="n">from</span><span class="p">,</span> <span class="s">"to"</span><span class="p">,</span> <span class="n">tx</span><span class="o">.</span><span class="n">To</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">replace</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ol>
+  <li>如果 hash 在池内已经存在，那么忽略</li>
+  <li>验证 tx 的有效性</li>
+  <li>如果池子已经满了，tx 不是 local，而且tx的价格最低，那么忽略，否则的话，清除目前最低价格的腾出一个位置。</li>
+  <li>如果 from 和 nonce 都相同，那么就替换掉之前的交易，否则就插入队列。</li>
+  <li>更新下 pool 的 locals 列表。</li>
+</ol>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+</pre></td> --><td class="rouge-code"><pre><span class="c">// validateTx checks whether a transaction is valid according to the consensus</span>
+<span class="c">// rules and adheres to some heuristic limits of the local node (price and size).</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">pool</span> <span class="o">*</span><span class="n">TxPool</span><span class="p">)</span> <span class="n">validateTx</span><span class="p">(</span><span class="n">tx</span> <span class="o">*</span><span class="n">types</span><span class="o">.</span><span class="n">Transaction</span><span class="p">,</span> <span class="n">local</span> <span class="kt">bool</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="c">// Heuristic limit, reject transactions over 32KB to prevent DOS attacks</span>
+    <span class="k">if</span> <span class="n">tx</span><span class="o">.</span><span class="n">Size</span><span class="p">()</span> <span class="o">&gt;</span> <span class="m">32</span><span class="o">*</span><span class="m">1024</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrOversizedData</span>
+    <span class="p">}</span>
+    <span class="c">// Transactions can't be negative. This may never happen using RLP decoded</span>
+    <span class="c">// transactions but may occur if you create a transaction using the RPC.</span>
+    <span class="k">if</span> <span class="n">tx</span><span class="o">.</span><span class="n">Value</span><span class="p">()</span><span class="o">.</span><span class="n">Sign</span><span class="p">()</span> <span class="o">&lt;</span> <span class="m">0</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrNegativeValue</span>
+    <span class="p">}</span>
+    <span class="c">// Ensure the transaction doesn't exceed the current block limit gas.</span>
+    <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">currentMaxGas</span> <span class="o">&lt;</span> <span class="n">tx</span><span class="o">.</span><span class="n">Gas</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrGasLimit</span>
+    <span class="p">}</span>
+    <span class="c">// Make sure the transaction is signed properly</span>
+    <span class="n">from</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">Sender</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">signer</span><span class="p">,</span> <span class="n">tx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrInvalidSender</span>
+    <span class="p">}</span>
+    <span class="c">// Drop non-local transactions under our own minimal accepted gas price</span>
+    <span class="n">local</span> <span class="o">=</span> <span class="n">local</span> <span class="o">||</span> <span class="n">pool</span><span class="o">.</span><span class="n">locals</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">from</span><span class="p">)</span> <span class="c">// account may be local even if the transaction arrived from the network</span>
+    <span class="k">if</span> <span class="o">!</span><span class="n">local</span> <span class="o">&amp;&amp;</span> <span class="n">pool</span><span class="o">.</span><span class="n">gasPrice</span><span class="o">.</span><span class="n">Cmp</span><span class="p">(</span><span class="n">tx</span><span class="o">.</span><span class="n">GasPrice</span><span class="p">())</span> <span class="o">&gt;</span> <span class="m">0</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrUnderpriced</span>
+    <span class="p">}</span>
+    <span class="c">// Ensure the transaction adheres to nonce ordering</span>
+    <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">currentState</span><span class="o">.</span><span class="n">GetNonce</span><span class="p">(</span><span class="n">from</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">tx</span><span class="o">.</span><span class="n">Nonce</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrNonceTooLow</span>
+    <span class="p">}</span>
+    <span class="c">// Transactor should have enough funds to cover the costs</span>
+    <span class="c">// cost == V + GP * GL</span>
+    <span class="k">if</span> <span class="n">pool</span><span class="o">.</span><span class="n">currentState</span><span class="o">.</span><span class="n">GetBalance</span><span class="p">(</span><span class="n">from</span><span class="p">)</span><span class="o">.</span><span class="n">Cmp</span><span class="p">(</span><span class="n">tx</span><span class="o">.</span><span class="n">Cost</span><span class="p">())</span> <span class="o">&lt;</span> <span class="m">0</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrInsufficientFunds</span>
+    <span class="p">}</span>
+    <span class="n">intrGas</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">IntrinsicGas</span><span class="p">(</span><span class="n">tx</span><span class="o">.</span><span class="n">Data</span><span class="p">(),</span> <span class="n">tx</span><span class="o">.</span><span class="n">To</span><span class="p">()</span> <span class="o">==</span> <span class="no">nil</span><span class="p">,</span> <span class="n">pool</span><span class="o">.</span><span class="n">homestead</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">tx</span><span class="o">.</span><span class="n">Gas</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">intrGas</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">ErrIntrinsicGas</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ol>
+  <li>交易的大小不能超过 32K</li>
+  <li>签名不能小于0</li>
+  <li>交易gas limit 不能小于现在 pool 的 limits</li>
+  <li>什么是 signer? signer 可以用来从 tx 得到 from</li>
+  <li>如果不是 local，那么 price 不能小于现在池子的 price</li>
+  <li>nonce 不能小于 池子的 nonce</li>
+  <li>余额要足够</li>
+  <li>计算实际的 gas 消耗，不能大于交易的 gas limit</li>
+  <li>都没问题的话，就返回成功
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script></li>
+</ol>
+:ET

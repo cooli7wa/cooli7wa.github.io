@@ -1,0 +1,2 @@
+I"R<p>从之前学习的内容知道，fabric 不止提供了 channel 间的隐私保护，还提供了 channel 内的隐私保护，叫做 private data collection，可以在 channel 内创建私密通道，只有私密通道的成员才能修改和查看具体的私密数据，可以说是进一步扩展了 fabric 的使用场景。</p>
+:ET

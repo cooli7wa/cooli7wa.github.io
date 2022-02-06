@@ -1,0 +1,184 @@
+I";)<p>这篇学习下以太坊中使用的数据结构。</p>
+
+<h3 id="header">header</h3>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre></td> --><td class="rouge-code"><pre><span class="c">// Header represents a block header in the Ethereum blockchain.</span>
+<span class="k">type</span> <span class="n">Header</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">ParentHash</span>  <span class="n">common</span><span class="o">.</span><span class="n">Hash</span>    <span class="s">`json:"parentHash"       gencodec:"required"`</span>
+    <span class="n">UncleHash</span>   <span class="n">common</span><span class="o">.</span><span class="n">Hash</span>    <span class="s">`json:"sha3Uncles"       gencodec:"required"`</span>
+    <span class="n">Coinbase</span>    <span class="n">common</span><span class="o">.</span><span class="n">Address</span> <span class="s">`json:"miner"            gencodec:"required"`</span>
+    <span class="n">Root</span>        <span class="n">common</span><span class="o">.</span><span class="n">Hash</span>    <span class="s">`json:"stateRoot"        gencodec:"required"`</span>
+    <span class="n">TxHash</span>      <span class="n">common</span><span class="o">.</span><span class="n">Hash</span>    <span class="s">`json:"transactionsRoot" gencodec:"required"`</span>
+    <span class="n">ReceiptHash</span> <span class="n">common</span><span class="o">.</span><span class="n">Hash</span>    <span class="s">`json:"receiptsRoot"     gencodec:"required"`</span>
+    <span class="n">Bloom</span>       <span class="n">Bloom</span>          <span class="s">`json:"logsBloom"        gencodec:"required"`</span>
+    <span class="n">Difficulty</span>  <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>       <span class="s">`json:"difficulty"       gencodec:"required"`</span>
+    <span class="n">Number</span>      <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>       <span class="s">`json:"number"           gencodec:"required"`</span>
+    <span class="n">GasLimit</span>    <span class="kt">uint64</span>         <span class="s">`json:"gasLimit"         gencodec:"required"`</span>
+    <span class="n">GasUsed</span>     <span class="kt">uint64</span>         <span class="s">`json:"gasUsed"          gencodec:"required"`</span>
+    <span class="n">Time</span>        <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>       <span class="s">`json:"timestamp"        gencodec:"required"`</span>
+    <span class="n">Extra</span>       <span class="p">[]</span><span class="kt">byte</span>         <span class="s">`json:"extraData"        gencodec:"required"`</span>
+    <span class="n">MixDigest</span>   <span class="n">common</span><span class="o">.</span><span class="n">Hash</span>    <span class="s">`json:"mixHash"`</span>
+    <span class="n">Nonce</span>       <span class="n">BlockNonce</span>     <span class="s">`json:"nonce"`</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ul>
+  <li>ParentHash，父区块的区块头的 Hash，RLP 之后 Keccak256 得到。</li>
+  <li>UncleHash，叔区块区块头的 Hash，RLP 之后 Keccak256 得到。</li>
+  <li>Coinbase，挖到区块的地址</li>
+  <li>Root，stateRoot，账户状态的 MPT 树根</li>
+  <li>TxHash，transactionsRoot，交易状态的 MPT 树根</li>
+  <li>ReceiptHash，receiptsRoot，收据状态的 MPT 树根</li>
+  <li>Bloom，logsBloom，日记 Bloom 过滤器由可索引信息（日志地址和日志主题）组成，这个信息包含在每个日志入口</li>
+  <li>Difficulty，difficulty，难度值</li>
+  <li>Number，number，区块编号, 等于当前区块的直系前辈区块数量（创始区块的区块编号为0）</li>
+  <li>GasLimit，gasLimit，目前每个区块的燃料消耗上限</li>
+  <li>GasUsed，gasUsed，当前区块的所有交易使用燃料之和</li>
+  <li>Time，当前时间戳</li>
+  <li>Extra，额外的数据</li>
+  <li>MixDigest，mixHash，混合哈希, 与一个与随机数 (nonce)相关的 256 位哈希计算, 用于证明针对当前区块已经完成了足够的计算</li>
+  <li>Nonce，随机数</li>
+</ul>
+
+<h3 id="block">block</h3>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td> --><td class="rouge-code"><pre><span class="c">// Block represents an entire block in the Ethereum blockchain.</span>
+<span class="k">type</span> <span class="n">Block</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">header</span>       <span class="o">*</span><span class="n">Header</span>
+    <span class="n">uncles</span>       <span class="p">[]</span><span class="o">*</span><span class="n">Header</span>
+    <span class="n">transactions</span> <span class="n">Transactions</span>
+
+    <span class="c">// caches</span>
+    <span class="n">hash</span> <span class="n">atomic</span><span class="o">.</span><span class="n">Value</span>
+    <span class="n">size</span> <span class="n">atomic</span><span class="o">.</span><span class="n">Value</span>
+
+    <span class="c">// Td is used by package core to store the total difficulty</span>
+    <span class="c">// of the chain up to and including the block.</span>
+    <span class="n">td</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>
+
+    <span class="c">// These fields are used by package eth to track</span>
+    <span class="c">// inter-peer block relay.</span>
+    <span class="n">ReceivedAt</span>   <span class="n">time</span><span class="o">.</span><span class="n">Time</span>
+    <span class="n">ReceivedFrom</span> <span class="k">interface</span><span class="p">{}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ul>
+  <li>header，区块头指针</li>
+  <li>uncles，叔区块的区块头指针</li>
+  <li>transactons，所有的交易</li>
+  <li>hash，区块头进行 RLP 之后求 hash 值</li>
+  <li>size，区块头 RLP 之后的大小</li>
+  <li>td，total difficulty，到目前为止总的难度值</li>
+  <li>ReceivedAt，接收到区块的时间</li>
+  <li>ReceivedFrom，从哪个节点接收到的区块</li>
+</ul>
+
+<h3 id="transactions">transactions</h3>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><!-- <td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td> --><td class="rouge-code"><pre><span class="k">type</span> <span class="n">Transaction</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">data</span> <span class="n">txdata</span>
+    <span class="c">// caches</span>
+    <span class="n">hash</span> <span class="n">atomic</span><span class="o">.</span><span class="n">Value</span>
+    <span class="n">size</span> <span class="n">atomic</span><span class="o">.</span><span class="n">Value</span>
+    <span class="n">from</span> <span class="n">atomic</span><span class="o">.</span><span class="n">Value</span>
+<span class="p">}</span>
+
+<span class="k">type</span> <span class="n">txdata</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">AccountNonce</span> <span class="kt">uint64</span>          <span class="s">`json:"nonce"    gencodec:"required"`</span>
+    <span class="n">Price</span>        <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>        <span class="s">`json:"gasPrice" gencodec:"required"`</span>
+    <span class="n">GasLimit</span>     <span class="kt">uint64</span>          <span class="s">`json:"gas"      gencodec:"required"`</span>
+    <span class="n">Recipient</span>    <span class="o">*</span><span class="n">common</span><span class="o">.</span><span class="n">Address</span> <span class="s">`json:"to"       rlp:"nil"`</span> <span class="c">// nil means contract creation</span>
+    <span class="n">Amount</span>       <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span>        <span class="s">`json:"value"    gencodec:"required"`</span>
+    <span class="n">Payload</span>      <span class="p">[]</span><span class="kt">byte</span>          <span class="s">`json:"input"    gencodec:"required"`</span>
+
+    <span class="c">// Signature values</span>
+    <span class="n">V</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span> <span class="s">`json:"v" gencodec:"required"`</span>
+    <span class="n">R</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span> <span class="s">`json:"r" gencodec:"required"`</span>
+    <span class="n">S</span> <span class="o">*</span><span class="n">big</span><span class="o">.</span><span class="n">Int</span> <span class="s">`json:"s" gencodec:"required"`</span>
+
+    <span class="c">// This is only used when marshaling to JSON.</span>
+    <span class="n">Hash</span> <span class="o">*</span><span class="n">common</span><span class="o">.</span><span class="n">Hash</span> <span class="s">`json:"hash" rlp:"-"`</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ul>
+  <li>hash，本交易的 RLP 的哈希</li>
+  <li>size，本交易的 RLP 的大小</li>
+  <li>from，交易的发起者</li>
+  <li>data
+    <ul>
+      <li>AccountNonce，账户的 nonce 值，账户模型中为了消除重复交易</li>
+      <li>Price，gasPrice，交易的 gas 价格</li>
+      <li>GasLimint，gas 上限</li>
+      <li>Recipient，收款方地址</li>
+      <li>Amoount，转账金额</li>
+      <li>Payload，合约代码或者输入参数</li>
+      <li>V，R，S，属于签名数据，通过这三个可以推算出公钥，也就可以算出 from</li>
+      <li>Hash，这个不太清楚什么用处？
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script></li>
+    </ul>
+  </li>
+</ul>
+:ET

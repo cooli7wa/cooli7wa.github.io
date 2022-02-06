@@ -1,0 +1,27 @@
+I"�<p>之前学习了<a href="http://cooli7wa.com//2018/09/08/%E6%AF%94%E7%89%B9%E5%B8%81%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E5%8C%BA%E5%9D%97%E5%A4%B4%E9%AA%8C%E8%AF%81/">区块头验证</a> 和 <a href="http://cooli7wa.com//2018/09/09/%E6%AF%94%E7%89%B9%E5%B8%81%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E9%BB%98%E5%85%8B%E5%B0%94%E6%A0%91/">默克尔树</a>，在区块的验证里都会用到，现在就来看看区块的验证。</p>
+
+<p>从 CheckBlock 函数（validation.cpp）开始：</p>
+
+<p><img src="/images/md/sc_check_block_0.png" alt="" /></p>
+
+<p><img src="/images/md/sc_check_block_1.png" alt="" /></p>
+
+<p>除了之前看过的区块头和默克尔根的验证，这里还涉及到两个函数，分别看下：</p>
+
+<p>CheckTransaction（tx_verify.cpp）：</p>
+
+<p><img src="/images/md/sc_check_block_2.png" alt="" /></p>
+
+<p>GetLegacySigOpCount（tx_verify.cpp）：</p>
+
+<p><img src="/images/md/sc_check_block_3.png" alt="" /></p>
+
+<p>这个函数有个从 txin 统计脚本操作符的过程，我知道在 P2SH (pay to script hash) 中，实际的脚本会存在于 txin 内，但是这个函数其实是计算的非 P2SH 情况，所以这里不是很理解。</p>
+
+<p>整体的 check block 的流程就是上面这些，主要设计到如下两个文件：</p>
+
+<ul>
+  <li>validation.cpp</li>
+  <li>tx_verify.cpp<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script></li>
+</ul>
+:ET

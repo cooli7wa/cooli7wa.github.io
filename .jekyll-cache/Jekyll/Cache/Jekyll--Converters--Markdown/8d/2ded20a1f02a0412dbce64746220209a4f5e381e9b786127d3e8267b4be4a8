@@ -1,0 +1,29 @@
+I"4
+<p>之前学习了<a href="http://cooli7wa.com//2018/09/08/%E6%AF%94%E7%89%B9%E5%B8%81%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0-%E5%8C%BA%E5%9D%97%E5%A4%B4%E9%AA%8C%E8%AF%81/">区块头验证</a>，今天开始看区块验证，在看到默克尔根验证的地方，代码注释的地方记录了之前的一个缺陷，挺有意思，就先学习下默克尔树，随便说下这个缺陷。</p>
+
+<p>默克尔树相关代码都在 merkle.cpp 中，BlockMerkleRoot 和 BlockWitnessMerkleRoot 是两个入口函数。</p>
+
+<p><img src="/images/md/sc_merkle_1.png" alt="" /></p>
+
+<p>在看 ComputeMerkleRoot 之前，先看下这个函数前的大篇幅注释：</p>
+
+<p><img src="/images/md/sc_merkle_0.png" alt="" /></p>
+
+<p>这篇注释，主要说明了以前实现方式存在的一个缺陷（CVE-2012-2459）及解决的方式。</p>
+
+<p>先说下这个缺陷，这个与 Merkle 的实现方式有有关。</p>
+
+<p>我们知道 Merkle 树是一层一层计算，每层两两计算 hash，这样每层都需要是偶数，那么如果数量正好是奇数，怎么办呢？代码会复制最后一个，使其成为偶数，在两两计算 hash。</p>
+
+<p>这个会导致一个问题。比如说，我们的 transaction 是 [1,2,3,4,5,6]，这是偶数，两两计算，得到了 [D,E,F]，这时候变成了奇数，代码会复制最后的 F 变成了 <strong>[D,E,F,F]</strong>，这样又可以计算了，最终算出了根 A。</p>
+
+<p>我们再看另一种情况，transaction 原始为 [1,2,3,4,5,6,5,6]，其中 [5,6] 是重复的，这种 transatcion 是特殊构建的，当然是不怀好意，如果一个节点，接受到这样的数据，按照正常的流程计算，得到 <strong>[D,E,F,F]</strong>，注意这里和刚才说的是<strong>一样的</strong>，继续计算的话，会得到跟之前一样的根 A。</p>
+
+<p>但是因为这样的 transaction 里面有重复，会导致重复花费，在后续的校验里不会通过，所以节点会记录<strong>这个根对应的区块是无效的</strong>，如果以后再收到原始的没有重复 transaction 的区块，由于根相同，它还是会认为是无效的，甚至<strong>后续的所有正确的区块</strong>，<strong>都无法继续接收</strong>。这就是这个缺陷的原因和影响。</p>
+
+<p>这个问题现在已经修正了，修正的方式在代码里：</p>
+
+<p><img src="/images/md/sc_merkle_2.png" alt="" /></p>
+
+<p>默尔克树相关就这些代码，都集中在 merkle.cpp 中。<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script></p>
+:ET

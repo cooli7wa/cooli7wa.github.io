@@ -1,0 +1,389 @@
+I"f*<p>bitcoin-cli 或者 bitcoin core wallet 的 console，支持很多命令，可以获得区块链相关的很多信息，一步步实验和解析下命令的输出。</p>
+
+<p><a href="https://en.bitcoin.it/wiki/Original_Bitcoin_client/API_calls_list">完整的命令列表</a></p>
+
+<h3 id="getwalletinfo">getwalletinfo</h3>
+
+<p>获取钱包相关的一些信息。</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre>{
+  "walletname": "wallet.dat",
+  "walletversion": 159900,
+  "balance": 0.00000000,
+  "unconfirmed_balance": 0.00000000,
+  "immature_balance": 0.00000000,
+  "txcount": 0,
+  "keypoololdest": 1532923740,
+  "keypoolsize": 1000,
+  "keypoolsize_hd_internal": 1000,
+  "paytxfee": 0.00000000,
+  "hdmasterkeyid": "a50eea8496c072b54f4f0b2937e3edb7bbc4761d"
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ul>
+  <li>balance: 已确认的余额，包括挖矿或者普通交易</li>
+  <li>unconfirmed_balance: 未确认的余额，<strong>确认数为0</strong>，普通交易</li>
+  <li>immature_balance: 未成熟的余额，<strong>确认数小于100</strong>，只针对挖矿</li>
+  <li>txcount: 钱包内的 transaction 数量</li>
+  <li>keypoololdest: 最先生成的 key 的时间戳</li>
+  <li>keypoolsize: 预生成的 key 数量，外部的 key</li>
+  <li>keypoolsize_hd_internal: 预生成的 key 数量，内部的 key，为 hd 使用</li>
+  <li>paytxfee: 预设的支付费用</li>
+  <li>hdmasterkeyid: masterkey 的 Hash160</li>
+</ul>
+
+<h3 id="getblockchaininfo">getblockchaininfo</h3>
+
+<p>获得区块链的信息</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+</pre></td><td class="rouge-code"><pre>{
+  "chain": "main",
+  "blocks": 539741,
+  "headers": 539741,
+  "bestblockhash": "0000000000000000000137324acb33a45f61d442cd767420ea934816ac20622c",
+  "difficulty": 6727225469722.534,
+  "mediantime": 1535947766,
+  "verificationprogress": 0.9999988951741678,
+  "initialblockdownload": false,
+  "chainwork": "000000000000000000000000000000000000000003028651fd95478395288650",
+  "size_on_disk": 207037656735,
+  "pruned": false,
+  "softforks": [
+    {
+      "id": "bip34",
+      "version": 2,
+      "reject": {
+        "status": true
+      }
+    },
+    {
+      "id": "bip66",
+      "version": 3,
+      "reject": {
+        "status": true
+      }
+    },
+    {
+      "id": "bip65",
+      "version": 4,
+      "reject": {
+        "status": true
+      }
+    }
+  ],
+  "bip9_softforks": {
+    "csv": {
+      "status": "active",
+      "startTime": 1462060800,
+      "timeout": 1493596800,
+      "since": 419328
+    },
+    "segwit": {
+      "status": "active",
+      "startTime": 1479168000,
+      "timeout": 1510704000,
+      "since": 481824
+    }
+  },
+  "warnings": ""
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<ul>
+  <li>
+    <p>blocks &amp; headers: 当前的区块链高度</p>
+  </li>
+  <li>
+    <p>bestblockhash: 当前的最优块（被确认最多的块）的 hash</p>
+  </li>
+  <li>
+    <p>difficulty: 当前难度值</p>
+  </li>
+  <li>
+    <p>mediantime: 最后块之前的 11 个块的中间时间，后续有效块的时间不能早于这个中间时间</p>
+  </li>
+  <li>
+    <p>verificationprogress: 验证的进程，从 0 到 1</p>
+  </li>
+  <li>
+    <p>chainwork: 按照现在的难度，重新生成目前这么多区块，一共有多少工作量。公式是</p>
+
+\[区块数 * 难度 * [0x01,0001,0001]\]
+
+    <p>来自 <a href="https://bitcoin.stackexchange.com/questions/26869/what-is-chainwork">What is chainwork?</a></p>
+  </li>
+  <li>
+    <p>size_on_disk: 所有区块所需的存储空间</p>
+  </li>
+  <li>
+    <p>pruned: 是否删减区块</p>
+  </li>
+  <li>
+    <p>softforks: 软分叉是为了升级区块链规则或修复 BUG，不会出现新的币种
+前面 3 个，BIP34、66、65，是老版本的软分叉，每次升级 version 递增。</p>
+
+    <p>后面 2 个，csv、segwit，采用了 BIP9 定义的新的软分叉规则，不再使用 version 递增的方式，而是引入了“版本位”、“开始时间”、“超时”、“状态”等概念。active 就代表已经成功激活。来自 <a href="https://github.com/bitcoin/bips/blob/master/bip-0009.mediawiki">BIP9</a></p>
+
+    <p><strong>都是去中心化的思想，版本是否更新也是由大家决定的</strong></p>
+  </li>
+</ul>
+
+<p>这里有一个 95% 原则，如果一定时间内的所有区块的 95% 使用了这个软分叉的版本，那么就上线这个版本（变为 active），从这时候开始，所有不遵守新版本规则的区块，将不会被矿工们验证通过。</p>
+
+<h3 id="getblockhash">getblockhash</h3>
+
+<p>获取某个区块的 hash</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>&gt;&gt; getblockhash 1000
+00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这里获取的是第 1000 个区块的 hash</p>
+
+<h3 id="getblock">getblock</h3>
+
+<p>获取某个区块信息</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td><td class="rouge-code"><pre>&gt;&gt; getblock 00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09
+￼{
+  "hash": "00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09",
+  "confirmations": 538753,
+  "strippedsize": 216,
+  "size": 216,
+  "weight": 864,
+  "height": 1000,
+  "version": 1,
+  "versionHex": "00000001",
+  "merkleroot": "fe28050b93faea61fa88c4c630f0e1f0a1c24d0082dd0e10d369e13212128f33",
+  "tx": [
+    "fe28050b93faea61fa88c4c630f0e1f0a1c24d0082dd0e10d369e13212128f33"
+  ],
+  "time": 1232346882,
+  "mediantime": 1232344831,
+  "nonce": 2595206198,
+  "bits": "1d00ffff",
+  "difficulty": 1,
+  "chainwork": "000000000000000000000000000000000000000000000000000003e903e903e9",
+  "nTx": 1,
+  "previousblockhash": "0000000008e647742775a230787d66fdf92c46a48c896bfbc85cdc8acc67e87d",
+  "nextblockhash": "00000000a2887344f8db859e372e7e4bc26b23b9de340f725afbf2edb265b4c6"
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这里的信息都很熟悉，只说下面两个：</p>
+
+<ul>
+  <li>weight: 重量，这个是 segwit 引入的概念，用来计算手续费</li>
+  <li>tx: 这里面是所有的 transaction 的 hash，这里只有一个，是挖矿的</li>
+</ul>
+
+<h3 id="getrawtrasaction">getrawtrasaction</h3>
+
+<p>根据 transaticon 的 hash 来获得原始数据</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>&gt;&gt; getrawtransaction fe28050b93faea61fa88c4c630f0e1f0a1c24d0082dd0e10d369e13212128f33
+01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804ffff
+001d02fd04ffffffff0100f2052a01000000434104f5eeb2b10c944c6b9fbcfff94c35bdeecd93df977882babc7f3a2cf7f5c81d3b09a68db7f0e04f21de5d4230e75e6dbe7ad16eefe0d4325a62067dc6f369446aac00000000
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>简单解析下，注意啊，都是<strong>小端</strong>的：</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre>01000000, version
+01, txin num
+0000000000000000000000000000000000000000000000000000000000000000, 预设值
+ffffffff, 预设值
+08, coinbase len
+04ffff001d02fd04, coinbase
+ffffffff, sequence
+01, txout num
+00f2052a01000000, 50 btc
+43, script len
+4104f5eeb2b10c944c6b9fbcfff94c35bdeecd93df977882babc7f3a2cf7f5c81d3b09a68db7f0e04f21de5d4230e75e6dbe7ad16eefe0d4325a62067dc6f369446aac
+00000000, locktime
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>也可以使用下面的命令来解析</p>
+
+<h3 id="decoderawtransaction">decoderawtransaction</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+</pre></td><td class="rouge-code"><pre>&gt;&gt; decoderawtransaction 01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804ffff001d02fd04ffffffff0100f2052a01000000434104f5eeb2b10c944c6b9fbcfff94c35bdeecd93df977882babc7f3a2cf7f5c81d3b09a68db7f0e04f21de5d4230e75e6dbe7ad16eefe0d4325a62067dc6f369446aac00000000
+
+{
+  "txid": "fe28050b93faea61fa88c4c630f0e1f0a1c24d0082dd0e10d369e13212128f33",
+  "hash": "fe28050b93faea61fa88c4c630f0e1f0a1c24d0082dd0e10d369e13212128f33",
+  "version": 1,
+  "size": 135,
+  "vsize": 135,
+  "locktime": 0,
+  "vin": [
+    {
+      "coinbase": "04ffff001d02fd04",
+      "sequence": 4294967295
+    }
+  ],
+  "vout": [
+    {
+      "value": 50.00000000,
+      "n": 0,
+      "scriptPubKey": {
+        "asm": "04f5eeb2b10c944c6b9fbcfff94c35bdeecd93df977882babc7f3a2cf7f5c81d3b09a68db7f0e04f21de5d4230e75e6dbe7ad16eefe0d4325a62067dc6f369446a OP_CHECKSIG",
+        "hex": "4104f5eeb2b10c944c6b9fbcfff94c35bdeecd93df977882babc7f3a2cf7f5c81d3b09a68db7f0e04f21de5d4230e75e6dbe7ad16eefe0d4325a62067dc6f369446aac",
+        "reqSigs": 1,
+        "type": "pubkey",
+        "addresses": [
+          "1BW18n7MfpU35q4MTBSk8pse3XzQF8XvzT"
+        ]
+      }
+    }
+  ]
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>还是上面那些内容，这样看起来或许直观点。</p>
+
+<h3 id="dumprivkey--importprivkey">dumprivkey &amp; importprivkey</h3>
+
+<p>这两个可以导出某个地址的私钥，或者将某个私钥导入钱包</p>
+
+<h3 id="dumpwallet">dumpwallet</h3>
+
+<p>将钱包的所有私钥和地址导出，开启了 HD 的话，会导出很多</p>
+
+<p>其他的命令就不一一介绍了，如果以后发现了有趣的命令，再增加进来。<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script></p>
+:ET
