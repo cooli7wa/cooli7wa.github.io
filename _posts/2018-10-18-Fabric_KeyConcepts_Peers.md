@@ -3,7 +3,9 @@ layout: post
 title: Fabric_KeyConcepts_Peers
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 前面学习了 MSPs，这篇来详细看下 Peers 相关的知识。
 

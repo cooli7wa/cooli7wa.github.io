@@ -4,7 +4,9 @@ title: gerrit REST API 使用方法
 #  User beanpodtech_test
 description:
 categories: tools
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 公司使用repo管理多个project，使用gerrit作为代码审核。
 为了方便为gerrit上的多个project创建同名分支，减少错误和遗漏，需要做一个自动化工具。

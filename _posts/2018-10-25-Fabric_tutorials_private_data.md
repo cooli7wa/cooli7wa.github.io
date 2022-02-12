@@ -3,7 +3,9 @@ layout: post
 title: Fabric_tutorials_private_data
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇文章，学习操作下 private data，[教程](https://hyperledger-fabric.readthedocs.io/en/release-1.3/private_data_tutorial.html)的示例很清晰，没什么需要多说的，所以这篇会很短。
 

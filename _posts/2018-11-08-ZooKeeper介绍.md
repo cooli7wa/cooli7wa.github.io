@@ -3,7 +3,9 @@ layout: post
 title: ZooKeeper介绍
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇来学习下 ZooKeeper，全部内容来源于网上两篇文章（在参考内），将两篇内容融合在一起，先有个大体的了解，算是入门吧。
 

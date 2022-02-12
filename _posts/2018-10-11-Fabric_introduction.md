@@ -3,7 +3,9 @@ layout: post
 title: Fabric_introduction
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 前些天参加了在北京举行的可信区块链峰会，各大公司的落地区块链产品大部分是基于联盟链的，而其中使用最多的就是 hyperledger fabric，而且很多安全方面的公司的产品也是针对 fabric 的，从 fabric 公开的材料中得知，中国已经注册了 50 多家会员单位，算上使用但还没注册的应该更多，可见 fabric 的影响力之大。我虽然之前看了一些文章和视频介绍 fabric，但是理解不深，所以最近开始深入学习下 fabric 的相关知识，就从 [官方文档](https://hyperledger-fabric.readthedocs.io/en/latest/whatis.html) 开始吧。
 

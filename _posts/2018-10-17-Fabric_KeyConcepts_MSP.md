@@ -3,7 +3,9 @@ layout: post
 title: Fabric_KeyConcepts_MSP
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 之前看过了 fabric 的网络架构，这篇来学习下 fabric 中很重要的 MSP (membership service provider) 相关的知识。
 

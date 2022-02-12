@@ -3,7 +3,9 @@ layout: post
 title: Fabric_KeyConcepts_Ledger
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇看下 Key concepts 的最后一篇文章，账本。
 

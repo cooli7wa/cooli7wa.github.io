@@ -3,7 +3,9 @@ layout: post
 title: Fabric_KeyConcepts_func_model
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 之前看了 fabric 的介绍，这篇就开始进入正题，深入学习下各种概念和特性。这里内容很多，介绍了 fabric 的方方面面，所以会陆续更新一系列文章。
 

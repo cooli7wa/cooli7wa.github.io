@@ -3,7 +3,9 @@ layout: post
 title: Fabric_tutorials_add_org
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇学习下如何在 fabric 内添加一个组织和对应的节点，官方文档在 [这里](https://hyperledger-fabric.readthedocs.io/en/release-1.3/channel_update_tutorial.html)，总结下整个流程和注意事项。
 

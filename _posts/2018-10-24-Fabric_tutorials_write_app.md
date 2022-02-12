@@ -3,7 +3,9 @@ layout: post
 title: Fabric_tutorials_write_app
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇简单介绍下 Writing Your First Application 中的一些注意点。
 

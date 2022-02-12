@@ -3,7 +3,9 @@ layout: post
 title: Fabric_tutorials_chaincode
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇学习下链码，原文在[这里](https://hyperledger-fabric.readthedocs.io/en/release-1.3/chaincode4ade.html)，写的很好，这里就不做详细描述了，但会做一些扩展，并会进行下总结。
 

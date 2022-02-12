@@ -3,7 +3,9 @@ layout: post
 title: RLP和VarInt
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 在区块链的世界里，一方面由于是分布式存储，一样的数据存储在所有的节点里，如果数据中包含无用的字节，那么在所有节点中浪费的总量就很客观，另一方面虽然数字货币的交易速率都不高，但是至少也有每秒几笔（比特币）到几十笔（以太坊），如果每笔交易中都包含一定的无用字节，那么时间长了，就会浪费掉非常大的空间。
 

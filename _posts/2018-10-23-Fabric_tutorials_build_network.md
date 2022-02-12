@@ -3,7 +3,9 @@ layout: post
 title: Fabric_tutorials_build_network
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 之前看过了 fabric 整体的架构和一些关键概念，对 fabric 有了整体的了解，这篇终于可以上手了 :)，这次学习下网络的构建过程。
 

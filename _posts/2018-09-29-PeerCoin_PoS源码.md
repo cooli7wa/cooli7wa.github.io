@@ -3,7 +3,9 @@ layout: post
 title: PeerCoin_PoS源码
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 之前学习了 PeerCoin 的白皮书，这篇就一起看下核心的 PoS 机制，PeerCoin 是 PoS 的鼻祖，所以还是很有代表性。
 

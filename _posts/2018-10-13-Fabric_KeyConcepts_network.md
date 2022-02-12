@@ -3,7 +3,9 @@ layout: post
 title: Fabric_KeyConcepts_network
 description:
 categories: study
-author: cooli7wa
+author:
+  name: cooli7wa
+  link: https://cooli7wa67@163.com
 ---
 这篇学习 fabric 的网络架构，[官方文档](https://hyperledger-fabric.readthedocs.io/en/release-1.3/network/network.html) 在这里，写得很全面也容易懂，这里就不详细介绍了，这篇主要是总结下一些关键点。
 
