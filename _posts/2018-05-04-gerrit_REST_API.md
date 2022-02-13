@@ -125,5 +125,4 @@ ret = rest.put(GERRITE_URL_CREATE_BRANCH)
 print(ret)
 ```
 
-<完>
 <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default"></script>
