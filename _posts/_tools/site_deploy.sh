@@ -1,5 +1,6 @@
 #!/bin/bash -
 
+sudo bundle update
 sudo jekyll build
 
 sudo rm -rf /var/www/cooli7wa.com
