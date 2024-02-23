@@ -5,7 +5,7 @@ description:
 categories: [study|essay|play|report|tools]
 author:
   name: cooli7wa
-  link: https://cooli7wa67@163.com
+  link: https://cooli7wa@126.com
 ---
 
 ![]({{site.baseurl}}/images/md/a.png)

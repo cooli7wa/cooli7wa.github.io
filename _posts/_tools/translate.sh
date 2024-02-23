@@ -27,8 +27,10 @@ cp $1 $new_file_name
 echo "cp file as $new_file_name ... done"
 
 # deal image
-sed -i 's:!\[.*\](:&{{site.baseurl}}/images/md/:g' $new_file_name
-sed -i 's:<img src=":&{{site.baseurl}}/images/md/:g' $new_file_name
+set -x
+sed -i '' 's:!\[.*\](:&{{site.baseurl}}/images/md/:g' $new_file_name
+sed -i '' 's:<img src=":&{{site.baseurl}}/images/md/:g' $new_file_name
+set +x
 echo "deal image ... done"
 
 # deal mathjax
@@ -36,13 +38,15 @@ echo '<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest
 echo "deal mathjax ... done"
 
 # deal header
-sed -i 1"i \
+sed -i '' 1"i \
 ---\n\
 layout: post\n\
 title: $title\n\
 description:\n\
 categories: $categories\n\
-author: cooli7wa\n\
+author:\n\
+  name: cooli7wa\n\
+  link: https://cooli7wa@126.com\n\
 ---\
 " $new_file_name
 echo "deal header ... done"
